@@ -1,45 +1,70 @@
 #!(allow[unused])
-extern crate openssl;
-extern crate chrono;
+extern crate base64;
+extern crate hex;
+extern crate rustc_serialize;
+extern crate crypto;
+extern crate rand;
 
-use std::fs;
+mod key_functions;
+mod file_read_functions; 
+
+use key_functions::{generate_iv, generate_key, hex_to_bytes};
+use file_read_functions::{read_file_vec};
+use crypto::aes_gcm::AesGcm;
+use crypto::aead::{AeadDecryptor, AeadEncryptor};
+use rustc_serialize::hex::FromHex;
+use rand::Rng;
 use std::env;
-use std::time::{Instant};
-
-mod hash_functions;
-use hash_functions::{add_to_content, create_hash, write_hash_to_file, sha512};
-//mod cipher_functions;
-//use cipher_functions::cipher_aes;
+use core::str;
+use std::iter::repeat;
 
 fn main() {
     
-    let start = Instant::now();
+    let mut path_file: String = "Cargo.lock".to_string();
+    let largo_clave: i32 = 32;
+    let largo_iv: i32 = 24;
+    let mut mykey="00000000000000000000000000000000";
+    unsafe{mykey=generate_key(largo_clave);}
+    let mut msg="Hola mundo";
+    let myadd="Additional Data for authentication!";
+
+    let mut myiv="000000000000000000000000";
+    unsafe{myiv = generate_iv(largo_iv);}
+
     let args: Vec<String> = env::args().collect();
+  
+    if args.len() >1 { path_file = args[1].as_str().to_string();}
+    if args.len() >2 { msg = args[2].as_str();}
+    if args.len() >3 { mykey = args[3].as_str();}
+    if args.len() >4 { myiv = args[4].as_str();}
 
-    if args.len() < 2{
-        println!("no ingresaste el argumento");
-    }else if args.len() > 2{
-        println!("pasaste demasiados argumentos");
-    }else{
-        let contents = fs::read_to_string(args[1].clone());
-        let mut contenido: String = String::new();
-        match contents{
-            Ok(contents) => contenido = contents,
-            Err(e) => println!("Error el leerlo: {}", e),
-        }
-        let metadata = fs::metadata(args[1].clone()).unwrap();
-        
-        let created = metadata.created().unwrap();
-        let modified = metadata.modified().unwrap();
-        let time_pure = modified.duration_since(created).unwrap().as_secs();
+    read_file_vec(path_file);
+    println!("== AES GCM ==");
+    println!("Message: {:?}",msg);
+    println!("Key: {}",mykey);
+    println!("IV: {:?}",myiv);
+    println!("Additional: {:?}",myadd);
+ 
+    let key=&hex_to_bytes( mykey)[..];
+    let iv=&hex_to_bytes( myiv)[..];
+    let plain=msg.as_bytes();
+    let add=myadd.as_bytes();
 
-        let hashable_content = add_to_content(&contenido, &args[1].clone(), &time_pure.to_string());
-        let hash = sha512(hashable_content.as_bytes());
-        let hash_usable: [char; 64] = create_hash(hash);
-        //println!("El hash SHA-512 de '{}' es: {:?}", String::from_utf8_lossy(args[1].as_bytes()), hash_usable);
-        let _response: bool = write_hash_to_file(args[1].clone(), hash_usable);
+    let key_size=crypto::aes::KeySize::KeySize128;
+    let mut cipher = AesGcm::new(key_size, key, iv, add);
+    let mut out: Vec<u8> = repeat(0).take(plain.len()).collect();
+    let mut out_tag: Vec<u8> = repeat(0).take(16).collect();
+
+    cipher.encrypt(plain, &mut out[..],&mut out_tag[..]);
+
+    let mut decipher = AesGcm::new(key_size, key, iv, add);
+    let mut out2: Vec<u8> = repeat(0).take(plain.len()).collect();
+
+    let result = decipher.decrypt(&out[..], &mut out2[..], &out_tag[..]);
+
+    println!("\nEncrypted: {}",hex::encode(out.clone()));
+    if result==true { 
+        println!("Successful decryption");
+        println!("\nDecrypted {}",str::from_utf8(&out2[..]).unwrap());
     }
-    let end = Instant::now();
-    let elapsed = end.duration_since(start).as_millis();
-    println!("Tiempo de ejecución: {} milisegundos", elapsed);
 }
