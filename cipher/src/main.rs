@@ -27,8 +27,10 @@ fn main() {
     let largo_iv: i32 = 24;
     
     let mut mykey="my secret key345";
+    println!("{}", mykey);
     unsafe{mykey=generate_key(largo_clave);}
     let mut myiv="my secret iv1345";
+    println!("{}", myiv);
     unsafe{myiv = generate_iv(largo_iv);}
 
     let args: Vec<String> = env::args().collect();
