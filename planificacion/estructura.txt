@@ -1,0 +1,3 @@
+las transacciones se guardan de tipo:
+Persona_que_envia-Persona_que_recibe-dinero_que_envia-tamaño_archivo_que_envia
+a esa transaccion se le genera un hash, el cual se guarda en la blockchain
