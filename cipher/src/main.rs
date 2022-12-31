@@ -15,9 +15,11 @@ use encrypt::{cifrar};
 use key_functions::{generate_iv, generate_key};
 use file_read_functions::{read_file_vec, write_to_file_str, read_file_str};
 use std::env;
+use std::time::{Instant};
 
 fn main() {
     
+    let start = Instant::now();
     let mut content_of_file_vec: Vec<u8> = Vec::new();
     let mut content_of_file_str: String = String::new();
     let mut path_file: String = "Cargo.lock".to_string();
@@ -99,4 +101,7 @@ fn main() {
     else{
         println!("no se ha suministrado ni opcion ni ruta :(");
     }
+    let end = Instant::now();
+    let elapsed = end.duration_since(start).as_millis();
+    println!("Tiempo de ejecución: {} milisegundos", elapsed);
 }
